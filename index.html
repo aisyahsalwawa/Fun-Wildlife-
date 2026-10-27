@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Maze Quest 3D: Wildlife Adventure</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        .hud-card {
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 2px solid #ff9d00;
+            pointer-events: auto;
+            max-width: 350px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .hud-card h2 {
+            font-size: 1.1rem;
+            color: #ffb703;
+            margin-bottom: 4px;
+        }
+
+        .hud-card p {
+            font-size: 0.9rem;
+            color: #e0e0e0;
+        }
+
+        /* Modal Dialog for Questions */
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 25, 0.95);
+            border: 3px solid #ff9d00;
+            border-radius: 20px;
+            padding: 25px;
+            width: 90%;
+            max-width: 480px;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            pointer-events: auto;
+            display: none;
+            text-align: center;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .modal-header {
+            font-size: 1.4rem;
+            color: #ffb703;
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+
+        .modal-question {
+            font-size: 1.05rem;
+            margin-bottom: 20px;
+            line-height: 1.4;
+            color: #f1f1f1;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .option-btn {
+            background: #2b2d42;
+            color: #edf2f4;
+            border: 2px solid #457b9d;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .option-btn:hover, .option-btn:active {
+            background: #457b9d;
+            border-color: #ffb703;
+            transform: translateY(-2px);
+        }
+
+        .feedback-msg {
+            font-size: 0.95rem;
+            font-weight: bold;
+            margin-top: 10px;
+            min-height: 24px;
+        }
+        .feedback-correct { color: #38b000; }
+        .feedback-wrong { color: #d90429; }
+
+        .hint-btn {
+            background: transparent;
+            border: none;
+            color: #ffb703;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        /* Mobile Controls */
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: none;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: none;
+        }
+
+        .joystick-zone {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            pointer-events: auto;
+            touch-action: none;
+        }
+
+        .joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 157, 0, 0.8);
+            border-radius: 50%;
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 157, 0, 0.85);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        /* Win Overlay */
+        #win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #win-screen h1 {
+            font-size: 2.5rem;
+            color: #ffb703;
+            margin-bottom: 10px;
+        }
+
+        #win-screen p {
+            font-size: 1.2rem;
+            max-width: 500px;
+            margin-bottom: 20px;
+        }
+
+        .restart-btn {
+            background: #ff9d00;
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 157, 0, 0.4);
+        }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="hud-card">
+            <h2>🐱 Quest: Wildlife Explorer</h2>
+            <p id="objective-text">Objective: Find the Bear Gate & answer the question!</p>
+        </div>
+    </div>
+
+    <!-- Mobile Touch Controls -->
+    <div id="mobile-controls">
+        <div class="joystick-zone" id="joystick">
+            <div class="joystick-knob" id="knob"></div>
+        </div>
+        <div class="action-btn" id="interact-btn">INTERACT</div>
+    </div>
+
+    <!-- Question Modal Dialog -->
+    <div class="modal" id="question-modal">
+        <div class="modal-header" id="modal-title">Wildlife Challenge</div>
+        <div class="modal-question" id="modal-question-text">Question goes here...</div>
+        <div class="options-grid" id="options-container"></div>
+        <button class="hint-btn" id="hint-btn" onclick="showHint()">Need a hint?</button>
+        <div class="feedback-msg" id="feedback-msg"></div>
+    </div>
+
+    <!-- Trophy / Win Screen -->
+    <div id="win-screen">
+        <h1>🏆 MISSION COMPLETE! 🏆</h1>
+        <p>Congratulations, Wildlife Explorer! You guided the Maine Coon Cat through all 4 animal zones and mastered the vocabulary & verbs!</p>
+        <button class="restart-btn" onclick="resetGame()">Play Again</button>
+    </div>
+
+    <script>
+        // --- GAME DATA & STATE ---
+        const ZONES = [
+            {
+                id: 'bear',
+                title: '🐻 Zone 1: The Bear Den',
+                question: 'Bears are large mammals that ________ through the forest to search for food before they ________ during the cold winter.',
+                options: [
+                    'forage | hibernate',
+                    'fly | migrate',
+                    'sprint | hunt',
+                    'swim | roar'
+                ],
+                correct: 0,
+                hint: 'Bears look for plants/berries (forage) and sleep through winter (hibernate).'
+            },
+            {
+                id: 'lion',
+                title: '🦁 Zone 2: The Lion Territory',
+                question: 'Lions are apex predators that ________ silently through the tall grass to ________ their prey as a pride.',
+                options: [
+                    'climb | graze',
+                    'prowl | hunt',
+                    'hibernate | leap',
+                    'swing | perch'
+                ],
+                correct: 1,
+                hint: 'Lions move quietly (prowl) to catch animals for food (hunt).'
+            },
+            {
+                id: 'giraffe',
+                title: '🦒 Zone 3: The Giraffe Savanna',
+                question: 'Giraffes use their long necks to ________ up into tall acacia trees so they can ________ on fresh green leaves.',
+                options: [
+                    'reach | graze',
+                    'prowl | devour',
+                    'stretch | browse',
+                    'sprint | hunt'
+                ],
+                correct: 2,
+                hint: 'Giraffes make themselves longer (stretch) and feed on high leaves (browse/graze).'
+            },
+            {
+                id: 'cheetah',
+                title: '🐆 Zone 4: The Cheetah Plains',
+                question: 'Known as the fastest land animal, the cheetah can ________ across open plains at top speed to ________ agile gazelles.',
+                options: [
+                    'sprint | chase',
+                    'crawl | ambush',
+                    'waddle | catch',
+                    'fly | strike'
+                ],
+                correct: 0,
+                hint: 'Cheetahs run extremely fast (sprint) while trying to capture fast prey (chase).'
+            }
+        ];
+
+        let currentZoneIndex = 0;
+        let isModalOpen = false;
+        let gameCompleted = false;
+
+        // --- THREE.JS SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb); // Sky blue
+        scene.fog = new THREE.FogExp2(0x87ceeb, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffaed, 0.8);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
+        const d = 30;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // Ground / Floor
+        const floorGeo = new THREE.PlaneGeometry(100, 100);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x557a46, roughness: 0.8 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // --- MAZE WALLS CREATION ---
+        const walls = [];
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.9 });
+        const wallH = 3;
+
+        function createWall(x, z, w, d) {
+            const geo = new THREE.BoxGeometry(w, wallH, d);
+            const mesh = new THREE.Mesh(geo, wallMaterial);
+            mesh.position.set(x, wallH / 2, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+            walls.push(new THREE.Box3().setFromObject(mesh));
+        }
+
+        // Outer Boundary
+        createWall(0, -35, 70, 2);
+        createWall(0, 35, 70, 2);
+        createWall(-35, 0, 2, 70);
+        createWall(35, 0, 2, 70);
+
+        // Internal Maze Dividers (Creating 4 corridors/sections)
+        createWall(-15, -10, 2, 30);
+        createWall(0, 10, 2, 30);
+        createWall(15, -10, 2, 30);
+        createWall(-10, 5, 20, 2);
+        createWall(10, -15, 20, 2);
+
+        // --- ORANGE MAINE COON CAT PLAYER ---
+        const playerGroup = new THREE.Group();
+
+        // Body (Orange Fur)
+        const catMat = new THREE.MeshStandardMaterial({ color: 0xe67e22, roughness: 0.5 }); // Orange
+        const whiteFurMat = new THREE.MeshStandardMaterial({ color: 0xfdfefe, roughness: 0.5 });
+        const earInnerMat = new THREE.MeshStandardMaterial({ color: 0xfab1a0 });
+
+        const bodyGeo = new THREE.BoxGeometry(0.8, 0.7, 1.2);
+        const body = new THREE.Mesh(bodyGeo, catMat);
+        body.position.y = 0.5;
+        body.castShadow = true;
+        playerGroup.add(body);
+
+        // Chest fluffy fur
+        const chestGeo = new THREE.BoxGeometry(0.7, 0.5, 0.3);
+        const chest = new THREE.Mesh(chestGeo, whiteFurMat);
+        chest.position.set(0, 0.45, -0.5);
+        playerGroup.add(chest);
+
+        // Head
+        const headGeo = new THREE.BoxGeometry(0.7, 0.6, 0.6);
+        const head = new THREE.Mesh(headGeo, catMat);
+        head.position.set(0, 0.9, -0.6);
+        head.castShadow = true;
+        playerGroup.add(head);
+
+        // Ears (Maine Coon tufted ears)
+        function createEar(x) {
+            const earGeo = new THREE.ConeGeometry(0.18, 0.4, 4);
+            const ear = new THREE.Mesh(earGeo, catMat);
+            ear.position.set(x, 1.3, -0.6);
+            ear.rotation.y = Math.PI / 4;
+            playerGroup.add(ear);
+        }
+        createEar(-0.25);
+        createEar(0.25);
+
+        // Fluffy Tail
+        const tailGeo = new THREE.CylinderGeometry(0.12, 0.22, 1.0, 8);
+        const tail = new THREE.Mesh(tailGeo, catMat);
+        tail.position.set(0, 0.8, 0.9);
+        tail.rotation.x = Math.PI / 3;
+        playerGroup.add(tail);
+
+        playerGroup.position.set(-28, 0, -28);
+        scene.add(playerGroup);
+
+        // --- INTERACTIVE GATES & TROPHY ---
+        const gates = [];
+        const gatePositions = [
+            { x: -25, z: -5, zoneIndex: 0 },
+            { x: -5, z: 20, zoneIndex: 1 },
+            { x: 10, z: -5, zoneIndex: 2 },
+            { x: 25, z: 20, zoneIndex: 3 }
+        ];
+
+        const gateMat = new THREE.MeshStandardMaterial({ color: 0xffb703, emissive: 0x332200, roughness: 0.3 });
+
+        gatePositions.forEach((pos, idx) => {
+            const gateGeo = new THREE.CylinderGeometry(1.2, 1.2, 2.5, 16);
+            const gateMesh = new THREE.Mesh(gateGeo, gateMat);
+            gateMesh.position.set(pos.x, 1.25, pos.z);
+            gateMesh.castShadow = true;
+            scene.add(gateMesh);
+
+            // Floating icon indicator above gate
+            const ringGeo = new THREE.TorusGeometry(0.8, 0.1, 8, 24);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd166 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.set(pos.x, 3.2, pos.z);
+            ring.rotation.x = Math.PI / 2;
+            scene.add(ring);
+
+            gates.push({ mesh: gateMesh, ring: ring, ...pos, solved: false });
+        });
+
+        // Trophy at Finish Line
+        const trophyGroup = new THREE.Group();
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2 });
+
+        const baseGeo = new THREE.CylinderGeometry(1.2, 1.5, 0.6, 16);
+        const base = new THREE.Mesh(baseGeo, goldMat);
+        base.position.y = 0.3;
+        trophyGroup.add(base);
+
+        const cupGeo = new THREE.ConeGeometry(1.0, 1.8, 16, 1, true);
+        const cup = new THREE.Mesh(cupGeo, goldMat);
+        cup.position.y = 1.4;
+        trophyGroup.add(cup);
+
+        trophyGroup.position.set(28, 0, 28);
+        scene.add(trophyGroup);
+
+        // --- CONTROLS & MOVEMENT LOGIC ---
+        const keys = {};
+        window.addEventListener('keydown', (e) => keys[e.code] = true);
+        window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        // Mobile Touch Joystick Implementation
+        let joystickActive = false;
+        let joystickVector = { x: 0, y: 0 };
+        const joystickZone = document.getElementById('joystick');
+        const knob = document.getElementById('knob');
+
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            document.getElementById('mobile-controls').style.display = 'flex';
+        }
+
+        joystickZone.addEventListener('touchstart', (e) => {
+            joystickActive = true;
+            updateJoystick(e.touches[0]);
+        });
+        window.addEventListener('touchmove', (e) => {
+            if (joystickActive) updateJoystick(e.touches[0]);
+        });
+        window.addEventListener('touchend', () => {
+            joystickActive = false;
+            knob.style.transform = `translate(0px, 0px)`;
+            joystickVector = { x: 0, y: 0 };
+        });
+
+        function updateJoystick(touch) {
+            const rect = joystickZone.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            let dx = touch.clientX - centerX;
+            let dy = touch.clientY - centerY;
+            const maxDist = 40;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+            }
+
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+            joystickVector = { x: dx / maxDist, y: dy / maxDist };
+        }
+
+        document.getElementById('interact-btn').addEventListener('click', triggerCheckInteraction);
+
+        // Camera Offset
+        const cameraOffset = new THREE.Vector3(0, 8, 10);
+
+        // Collision Check Helper
+        function checkWallCollision(newPos) {
+            const playerBox = new THREE.Box3().setFromCenterAndSize(
+                newPos,
+                new THREE.Vector3(0.9, 1, 0.9)
+            );
+            for (let wall of walls) {
+                if (playerBox.intersectsBox(wall)) return true;
+            }
+            return false;
+        }
+
+        // --- INTERACTION & GAMEWORK ---
+        function triggerCheckInteraction() {
+            if (isModalOpen || gameCompleted) return;
+
+            // Check distance to current zone gate
+            const activeGate = gates[currentZoneIndex];
+            if (activeGate && !activeGate.solved) {
+                const dist = playerGroup.position.distanceTo(activeGate.mesh.position);
+                if (dist < 3.5) {
+                    openQuestionModal(currentZoneIndex);
+                }
+            }
+        }
+
+        function openQuestionModal(index) {
+            isModalOpen = true;
+            const zone = ZONES[index];
+            document.getElementById('modal-title').innerText = zone.title;
+            document.getElementById('modal-question-text').innerText = zone.question;
+            
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            document.getElementById('feedback-msg').innerText = '';
+
+            zone.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => submitAnswer(idx, zone.correct);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('question-modal').style.display = 'block';
+        }
+
+        function submitAnswer(selectedIndex, correctIndex) {
+            const feedback = document.getElementById('feedback-msg');
+            if (selectedIndex === correctIndex) {
+                feedback.className = 'feedback-msg feedback-correct';
+                feedback.innerText = '✨ Correct! Gate Unlocked!';
+                
+                setTimeout(() => {
+                    document.getElementById('question-modal').style.display = 'none';
+                    isModalOpen = false;
+                    
+                    // Unlock Gate
+                    gates[currentZoneIndex].solved = true;
+                    scene.remove(gates[currentZoneIndex].mesh);
+                    scene.remove(gates[currentZoneIndex].ring);
+
+                    currentZoneIndex++;
+                    if (currentZoneIndex < ZONES.length) {
+                        document.getElementById('objective-text').innerText = `Objective: Proceed to ${ZONES[currentZoneIndex].title.split(':')[1]}`;
+                    } else {
+                        document.getElementById('objective-text').innerText = 'Objective: Head to the Golden Trophy at the End Line!';
+                    }
+                }, 1200);
+            } else {
+                feedback.className = 'feedback-msg feedback-wrong';
+                feedback.innerText = '❌ Incorrect. Try again or check hint!';
+            }
+        }
+
+        function showHint() {
+            const feedback = document.getElementById('feedback-msg');
+            feedback.className = 'feedback-msg';
+            feedback.style.color = '#ffb703';
+            feedback.innerText = '💡 Hint: ' + ZONES[currentZoneIndex].hint;
+        }
+
+        function resetGame() {
+            window.location.reload();
+        }
+
+        // Keyboard interact shortcut
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyE' || e.code === 'Space') {
+                triggerCheckInteraction();
+            }
+        });
+
+        // --- MAIN GAME LOOP ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const moveSpeed = 7 * delta;
+
+            if (!isModalOpen && !gameCompleted) {
+                let moveX = 0;
+                let moveZ = 0;
+
+                // Keyboard
+                if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+                // Joystick override
+                if (joystickActive) {
+                    moveX = joystickVector.x;
+                    moveZ = joystickVector.y;
+                }
+
+                if (moveX !== 0 || moveZ !== 0) {
+                    const dir = new THREE.Vector3(moveX, 0, moveZ).normalize();
+                    const targetPos = playerGroup.position.clone().addScaledVector(dir, moveSpeed);
+
+                    if (!checkWallCollision(targetPos)) {
+                        playerGroup.position.copy(targetPos);
+                    }
+
+                    // Rotate cat towards direction
+                    const targetAngle = Math.atan2(dir.x, dir.z);
+                    playerGroup.rotation.y = targetAngle + Math.PI;
+                }
+
+                // Check distance to trophy/finish line
+                if (currentZoneIndex >= ZONES.length) {
+                    const distToTrophy = playerGroup.position.distanceTo(trophyGroup.position);
+                    if (distToTrophy < 2.5) {
+                        gameCompleted = true;
+                        document.getElementById('win-screen').style.display = 'flex';
+                    }
+                }
+
+                // Animate Floating Rings & Trophy
+                gates.forEach(g => {
+                    if (g.ring) g.ring.rotation.z += 0.02;
+                });
+                trophyGroup.rotation.y += 0.015;
+            }
+
+            // Smooth Camera Follow
+            const targetCamPos = playerGroup.position.
